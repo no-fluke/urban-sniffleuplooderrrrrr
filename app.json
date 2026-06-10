@@ -40,6 +40,11 @@
             "description": "𝙀𝙣𝙩𝙚𝙧 𝙔𝙤𝙪𝙧 𝙈𝙤𝙣𝙜𝙤𝘿𝘽 𝙐𝙍𝙇 (mongodb+srv://...)",
             "value": "",
             "required": true
+        },
+        "VIMEO_WORKER_URL": {
+            "description": "𝙀𝙣𝙩𝙚𝙧 𝙔𝙤𝙪𝙧 𝘾𝙡𝙤𝙪𝙙𝙛𝙡𝙖𝙧𝙚 𝙒𝙤𝙧𝙠𝙚𝙧 𝙐𝙍𝙇 𝙛𝙤𝙧 𝙑𝙞𝙢𝙚𝙤 (https://vimeo-extractor.yourname.workers.dev)",
+            "value": "",
+            "required": false
         }
     },
     "formation": {
