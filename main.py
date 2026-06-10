@@ -20,7 +20,7 @@ from logs import logging
 from bs4 import BeautifulSoup
 import saini as helper
 from utils import progress_bar
-from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS
+from vars import API_ID, API_HASH, BOT_TOKEN, OWNER, CREDIT, AUTH_USERS, TOTAL_USERS, VIMEO_WORKER_URL
 from db import db
 from auth import (
     add_user_cmd, remove_user_cmd, list_users_cmd, my_plan_cmd,
@@ -28,6 +28,54 @@ from auth import (
 )
 from aiohttp import ClientSession
 from subprocess import getstatusoutput
+
+# ─── VIMEO WORKER HELPER ──────────────────────────────────────────────────────
+
+def is_vimeo_url(url: str) -> bool:
+    """Return True if the URL is a Vimeo or vimp/embed URL that the worker can handle."""
+    patterns = [
+        "vimeo.com/",
+        "player.vimeo.com/",
+        "vimp.",          # vimp.nexield.in etc.
+        "vimeo.com%2F",   # URL-encoded variant
+    ]
+    url_lower = url.lower()
+    return any(p in url_lower for p in patterns)
+
+def vimeo_resolve(url: str, quality: int = 720):
+    """
+    Call the Cloudflare Worker to resolve a Vimeo/vimp URL into a signed HLS URL.
+    Returns the HLS stream URL string, or None on failure.
+    `quality` is used only as a hint for yt-dlp format selection after we get the URL.
+    """
+    if not VIMEO_WORKER_URL:
+        raise RuntimeError(
+            "VIMEO_WORKER_URL env var is not set. "
+            "Deploy worker.js to Cloudflare Workers and set the env var."
+        )
+    worker_base = VIMEO_WORKER_URL.rstrip("/")
+    api_url = f"{worker_base}/?url={urllib.parse.quote(url, safe='')}"
+    try:
+        resp = requests.get(api_url, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        raise RuntimeError(f"Vimeo worker request failed: {e}")
+
+    if not data.get("success"):
+        raise RuntimeError(f"Vimeo worker error: {data.get('error', 'unknown')}")
+
+    streams = data.get("streams", {})
+    # Prefer direct HLS; fall back to direct DASH, then proxied HLS
+    hls = (
+        streams.get("direct", {}).get("hls")
+        or streams.get("proxied", {}).get("hls")
+        or streams.get("direct", {}).get("dash")
+        or streams.get("proxied", {}).get("dash")
+    )
+    if not hls:
+        raise RuntimeError("Vimeo worker returned no stream URLs")
+    return hls
 from pytube import YouTube
 from aiohttp import web
 import random
@@ -1236,6 +1284,9 @@ async def txt_handler(bot: Client, m: Message):
             elif "d1d34p8vz63oiq" in url or "sec1.pw.live" in url:
                 url = f"https://anonymouspwplayerr-3cfbfedeb317.herokuapp.com/pw?url={url}&token={pwtoken}"
 
+            elif is_vimeo_url(url):
+                url = vimeo_resolve(url)
+
             if ".pdf*" in url:
                 url = f"https://dragoapi.vercel.app/pdf/{url}"
             
@@ -1648,6 +1699,9 @@ async def text_handler(bot: Client, m: Message):
             elif "d1d34p8vz63oiq" in url or "sec1.pw.live" in url:
                 vid_id =  url.split('/')[-2]
                 url = f"https://anonymouspwplayer-b99f57957198.herokuapp.com/pw?url={url}?token={raw_text4}"
+
+            elif is_vimeo_url(url):
+                url = vimeo_resolve(url)
                 
             if ".pdf*" in url:
                 url = f"https://dragoapi.vercel.app/pdf/{url}"
