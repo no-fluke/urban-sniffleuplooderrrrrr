@@ -14,6 +14,12 @@ CREDIT = environ.get("CREDIT", "MRBERLIN")
 #   mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority
 MONGO_URL = environ.get("MONGO_URL", "")
 
+# ─── VIMEO WORKER ─────────────────────────────────────────────────────────────
+# Cloudflare Worker URL for Vimeo signed URL extraction.
+# Deploy worker.js to Cloudflare and set this to your worker's base URL.
+# e.g. https://vimeo-extractor.yourname.workers.dev
+VIMEO_WORKER_URL = environ.get("VIMEO_WORKER_URL", "")
+
 # ─── LEGACY IN-MEMORY USERS (kept for backward compat, DB is primary) ─────────
 TOTAL_USER  = os.environ.get("TOTAL_USERS", str(OWNER)).split(",")
 TOTAL_USERS = [int(u) for u in TOTAL_USER]
