@@ -1346,6 +1346,14 @@ async def txt_handler(bot: Client, m: Message):
                     f'-R 25 --fragment-retries 25 '
                     f'"{url}" -o "{name}.mp4"'
                 )
+            elif ".m3u8" in url or "vimeo" in url or "akamaized" in url or "fastly" in url:
+                # Vimeo HLS — concurrent fragment downloading for speed
+                cmd = (
+                    f'yt-dlp -f "{ytf}" '
+                    f'--concurrent-fragments 16 '
+                    f'--no-part '
+                    f'"{url}" -o "{name}.mp4"'
+                )
             else:
                 cmd = f'yt-dlp -f "{ytf}" "{url}" -o "{name}.mp4"'
 
@@ -1759,6 +1767,14 @@ async def text_handler(bot: Client, m: Message):
                     f'--extractor-args "youtube:player_client=android" '
                     f'-f "{ytf}" '
                     f'-R 25 --fragment-retries 25 '
+                    f'"{url}" -o "{name}.mp4"'
+                )
+            elif ".m3u8" in url or "vimeo" in url or "akamaized" in url or "fastly" in url:
+                # Vimeo HLS — concurrent fragment downloading for speed
+                cmd = (
+                    f'yt-dlp -f "{ytf}" '
+                    f'--concurrent-fragments 16 '
+                    f'--no-part '
                     f'"{url}" -o "{name}.mp4"'
                 )
             else:
