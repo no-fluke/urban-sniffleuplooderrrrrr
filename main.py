@@ -42,19 +42,31 @@ def is_vimeo_url(url: str) -> bool:
     url_lower = url.lower()
     return any(p in url_lower for p in patterns)
 
-def vimeo_resolve(url: str, quality: int = 720):
+def vimeo_resolve(url: str):
     """
-    Call the Cloudflare Worker to resolve a Vimeo/vimp URL into a signed HLS URL.
-    Returns the HLS stream URL string, or None on failure.
-    `quality` is used only as a hint for yt-dlp format selection after we get the URL.
+    Call the Cloudflare Worker to resolve a Vimeo/vimp URL into a signed HLS
+    master playlist URL, then hand it to yt-dlp which picks quality via -f selector.
+
+    The original URL is passed as &ref= so the worker knows which site is
+    embedding the video — required for domain-restricted Vimeo videos.
     """
     if not VIMEO_WORKER_URL:
         raise RuntimeError(
             "VIMEO_WORKER_URL env var is not set. "
             "Deploy worker.js to Cloudflare Workers and set the env var."
         )
+
+    # Derive the referrer hint from the input URL (origin of the embedding site)
+    try:
+        ref_hint = urllib.parse.urlparse(url).scheme + "://" + urllib.parse.urlparse(url).netloc
+    except Exception:
+        ref_hint = None
+
     worker_base = VIMEO_WORKER_URL.rstrip("/")
     api_url = f"{worker_base}/?url={urllib.parse.quote(url, safe='')}"
+    if ref_hint:
+        api_url += f"&ref={urllib.parse.quote(ref_hint, safe='')}"
+
     try:
         resp = requests.get(api_url, timeout=30)
         resp.raise_for_status()
@@ -66,15 +78,34 @@ def vimeo_resolve(url: str, quality: int = 720):
         raise RuntimeError(f"Vimeo worker error: {data.get('error', 'unknown')}")
 
     streams = data.get("streams", {})
-    # Prefer direct HLS; fall back to direct DASH, then proxied HLS
-    hls = (
-        streams.get("direct", {}).get("hls")
-        or streams.get("proxied", {}).get("hls")
-        or streams.get("direct", {}).get("dash")
-        or streams.get("proxied", {}).get("dash")
-    )
+
+    # 1st choice — direct HLS master playlist (best: yt-dlp can pick quality)
+    hls = streams.get("direct", {}).get("hls")
+
+    # 2nd choice — scan all_hls_cdns for any non-null master URL
     if not hls:
-        raise RuntimeError("Vimeo worker returned no stream URLs")
+        for cdn_entry in streams.get("all_hls_cdns", []):
+            hls = cdn_entry.get("url") or cdn_entry.get("avc_url")
+            if hls:
+                break
+
+    # 3rd choice — proxied HLS (goes through worker, slower but works behind restrictions)
+    if not hls:
+        hls = streams.get("proxied", {}).get("hls")
+
+    # 4th choice — DASH
+    if not hls:
+        hls = (
+            streams.get("direct", {}).get("dash")
+            or streams.get("proxied", {}).get("dash")
+        )
+
+    if not hls:
+        raise RuntimeError(
+            f"Vimeo worker returned no stream URLs for: {url}\n"
+            f"Worker response: {data}"
+        )
+
     return hls
 from pytube import YouTube
 from aiohttp import web
