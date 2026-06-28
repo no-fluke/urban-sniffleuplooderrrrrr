@@ -1310,10 +1310,10 @@ async def txt_handler(bot: Client, m: Message):
                 url = url.split("bcov_auth")[0]+bcov
                 
             elif "childId" in url and "parentId" in url:
-                url = f"https://anonymouspwplayerr-3cfbfedeb317.herokuapp.com/pw?url={url}&token={pwtoken}"
+                url = f"https://anonymouspwplayerrrr-c95d81521328.herokuapp.com/pw?url={url}&token={pwtoken}"
                            
             elif "d1d34p8vz63oiq" in url or "sec1.pw.live" in url:
-                url = f"https://anonymouspwplayerr-3cfbfedeb317.herokuapp.com/pw?url={url}&token={pwtoken}"
+                url = f"https://anonymouspwplayerrrr-c95d81521328.herokuapp.com/pw?url={url}&token={pwtoken}"
 
             elif is_vimeo_url(url):
                 url = vimeo_resolve(url)
